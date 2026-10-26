@@ -1,0 +1,38 @@
+# Android / Gradle
+*.iml
+.gradle/
+.kotlin/
+/local.properties
+/.idea/
+.DS_Store
+build/
+/captures/
+.externalNativeBuild
+.cxx
+local.properties
+
+# Claves y firmas
+*.jks
+*.keystore
+keystore.properties
+signing.properties
+
+# Datos personales del repartidor: NUNCA subir
+*.db
+*.db-wal
+*.db-shm
+*.sqlite
+*.sqlite3
+jornada_*/
+backups_db/
+informes/
+Informe_*.pdf
+Expediente_*.pdf
+Factura_*.pdf
+capturas/
+Pantallazos*/
+*.log
+
+# Basura
+*.bak
+*.tmp

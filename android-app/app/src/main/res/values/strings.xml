@@ -1,0 +1,7 @@
+<resources>
+    <string name="app_name">MisRepartos</string>
+    <string name="app_author">JoseRufino</string>
+    <string name="app_signature">© 2026 JoseRufino</string>
+    <string name="acc_desc">Registra los hitos de la jornada (pantallas de la app de reparto) para generar la evidencia del repartidor. Solo observa: no pulsa ni modifica nada.</string>
+    <string name="notif_channel">Jornada en curso</string>
+</resources>
