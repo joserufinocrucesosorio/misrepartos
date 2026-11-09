@@ -5,4 +5,5 @@
     <external-files-path name="informes" path="informes/" />
     <external-files-path name="facturas" path="facturas/" />
     <external-files-path name="justificaciones" path="justificaciones/" />
+    <external-files-path name="backups" path="backups/" />
 </paths>

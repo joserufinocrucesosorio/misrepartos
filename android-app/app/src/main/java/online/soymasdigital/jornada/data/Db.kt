@@ -99,6 +99,24 @@ class Repo(ctx: Context) {
 
     fun jornadaActiva(): Long = jornadaAbierta() ?: abrirJornada()
 
+    // ---------------- v2.1.2: copia de seguridad ----------------
+
+    /** Numero de jornadas registradas (va en INFO.txt y en los avisos de importar). */
+    fun contarJornadas(): Int {
+        db.rawQuery("SELECT COUNT(*) FROM jornada", null).use { c ->
+            if (c.moveToFirst()) return c.getInt(0)
+        }
+        return 0
+    }
+
+    /**
+     * Cierra la conexion antes de copiar o sustituir laboral.db. Tras llamarlo, cualquier
+     * acceso a [db] la vuelve a abrir (SQLiteOpenHelper reabre solo).
+     */
+    fun cerrarDb() {
+        try { helper.close() } catch (e: Exception) { }
+    }
+
     /** Ultima jornada que tiene datos (cartera o evidencias): para el expediente cuando no hay ninguna abierta. */    /** ¿La jornada tiene algun dato? Sirve para cancelar jornadas vacias sin tocar el cierre duro. */
     fun jornadaTieneDatos(jid: Long): Boolean {
         if (totalEvidenciasJornada(jid) > 0) return true

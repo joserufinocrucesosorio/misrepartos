@@ -3,9 +3,9 @@
 App Android para que un repartidor registre su propia jornada y genere evidencia en PDF.
 Gratuita, sin cuentas, sin servidores y sin conexión a internet.
 
-**Versión:** 2.1.1 · **Autor:** JoseRufino · **Licencia:** GPL-3.0
+**Versión:** 2.1.2 · **Autor:** JoseRufino · **Licencia:** GPL-3.0
 
-📘 **[Guía de uso completa](GUIA.md)**
+📘 **[Guía de uso completa](GUIA.md)** · 📄 **[Guía en PDF](GUIA.pdf)**
 
 ## Qué hace
 

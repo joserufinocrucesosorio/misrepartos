@@ -1,7 +1,9 @@
 package online.soymasdigital.jornada
 
 import android.Manifest
+import android.app.AlarmManager
 import android.app.DatePickerDialog
+import android.app.PendingIntent
 import android.app.TimePickerDialog
 import android.content.Intent
 import android.content.pm.PackageManager
@@ -29,6 +31,7 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import online.soymasdigital.jornada.data.Backup
 import online.soymasdigital.jornada.data.CapturasKeep
 import online.soymasdigital.jornada.data.Repo
 import online.soymasdigital.jornada.pdf.Expediente
@@ -62,6 +65,7 @@ class MainActivity : AppCompatActivity() {
     private val REQ_FOTO_CONSIG = 74
     private val REQ_PERM_FOTOS = 75
     private val REQ_CARPETA = 76
+    private val REQ_IMPORT_ZIP = 77
     private var accionTrasCarpeta: (() -> Unit)? = null
     private var fotoConsigPendiente = ""
     private var consigPendienteId = -1L
@@ -217,6 +221,11 @@ class MainActivity : AppCompatActivity() {
         item("D", boton("Activar servicio de accesibilidad") { abrirAccesibilidad() })
         item("D", boton("FACTURA DE COBRO (km + mantenimiento, EUR/km)") { generarFactura() })
         item("D", boton("JUSTIFICACIÓN de aviso/sanción (PDF, formato Rufino)") { formularioJustificacion() })
+
+        // v2.1.2: copia de seguridad (mover los datos a otro movil / pasar de debug a release)
+        val copD = subBloque(bloques["D"]!!, "cop_D", "COPIA DE SEGURIDAD  (mover los datos a otro movil)")
+        copD.addView(boton("EXPORTAR copia de seguridad (ZIP: base de datos + capturas)") { exportarCopia() })
+        copD.addView(boton("IMPORTAR copia de seguridad (ZIP) - SUSTITUYE los datos") { importarCopia() })
 
         tvChecklist = TextView(this)
         tvChecklist.setPadding(0, 26, 0, 0)
@@ -917,6 +926,12 @@ class MainActivity : AppCompatActivity() {
                 toast("Carpeta no elegida: el PDF se guardara en la carpeta privada de la app")
                 accion?.invoke()
             }
+            return
+        }
+        if (requestCode == REQ_IMPORT_ZIP) {
+            val uri = data?.data
+            if (resultCode == RESULT_OK && uri != null) revisarZipImportado(uri)
+            else toast("No se eligio ninguna copia")
             return
         }
         if (requestCode == REQ_FOTO_FLUJO) {
@@ -2725,6 +2740,194 @@ class MainActivity : AppCompatActivity() {
         } catch (e: Exception) {
             toast("No se pudo compartir: " + e.message)
         }
+    }
+
+    // ---------------- v2.1.2: COPIA DE SEGURIDAD (exportar / importar) ----------------
+
+    private fun progreso(msg: String): AlertDialog =
+        AlertDialog.Builder(this)
+            .setTitle("Copia de seguridad")
+            .setMessage(msg)
+            .setCancelable(false)
+            .create()
+            .also { it.show() }
+
+    /** Exporta un ZIP con laboral.db, capturas_keep y INFO.txt a la carpeta elegida. */
+    private fun exportarCopia() {
+        conCarpeta {
+            val espera = progreso("Creando la copia de seguridad...\nNo cierres la app.")
+            Thread {
+                var salida: Backup.Salida? = null
+                var error: String? = null
+                var info: Backup.Info? = null
+                try {
+                    val i = Backup.Info(versionNombre(), repo.contarJornadas(), Backup.contarCapturas(this))
+                    info = i
+                    val db = getDatabasePath(Backup.NOMBRE_DB)
+                    val keep = File(filesDir, Backup.CARPETA_CAPTURAS)
+                    repo.cerrarDb()
+                    salida = Backup.guardar(this, "backups", Backup.nombreExport().removeSuffix(".zip")) { out ->
+                        Backup.escribirCopia(this, db, keep, i, out)
+                    }
+                } catch (e: Exception) {
+                    error = e.message ?: e.javaClass.simpleName
+                }
+                runOnUiThread {
+                    repo = Repo(this)
+                    try { espera.dismiss() } catch (e2: Exception) { }
+                    val s = salida
+                    if (s == null) {
+                        AlertDialog.Builder(this)
+                            .setTitle("No se pudo exportar")
+                            .setMessage("Error: " + (error ?: "desconocido") + "\n\nTus datos NO se han tocado.")
+                            .setPositiveButton("Vale", null)
+                            .show()
+                    } else {
+                        val mb = String.format(Locale.US, "%.1f MB", s.bytes / 1048576.0)
+                        AlertDialog.Builder(this)
+                            .setTitle("Copia de seguridad creada")
+                            .setMessage("Guardada en:\n" + s.destino + "\n" + s.nombre + "\n\n" + mb + "\n" +
+                                    "Jornadas: " + (info?.jornadas ?: 0) + "  -  Capturas: " + (info?.capturas ?: 0) + "\n\n" +
+                                    "Lleva este ZIP al movil nuevo e importalo con el boton IMPORTAR.")
+                            .setPositiveButton("Compartir") { _, _ -> compartirZip(s) }
+                            .setNegativeButton("Cerrar", null)
+                            .show()
+                    }
+                }
+            }.start()
+        }
+    }
+
+    private fun compartirZip(s: Backup.Salida) {
+        try {
+            startActivity(Intent.createChooser(Backup.intentCompartir(this, s), "Compartir copia de seguridad"))
+        } catch (e: Exception) {
+            toast("No se pudo compartir: " + e.message)
+        }
+    }
+
+    /** Selector de fichero del sistema para elegir el ZIP que se va a importar. */
+    private fun importarCopia() {
+        val i = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+            addCategory(Intent.CATEGORY_OPENABLE)
+            type = "application/zip"
+            putExtra(Intent.EXTRA_MIME_TYPES,
+                arrayOf("application/zip", "application/x-zip-compressed", "application/octet-stream"))
+        }
+        try {
+            startActivityForResult(i, REQ_IMPORT_ZIP)
+        } catch (e: Exception) {
+            toast("No se pudo abrir el selector de ficheros: " + e.message)
+        }
+    }
+
+    /** Valida el ZIP elegido y, si sirve, pide confirmacion explicita. */
+    private fun revisarZipImportado(uri: Uri) {
+        val espera = progreso("Comprobando la copia de seguridad...")
+        Thread {
+            var rev: Backup.Revision? = null
+            var error: String? = null
+            try {
+                rev = Backup.revisar(this, uri)
+            } catch (e: Exception) {
+                error = e.message ?: e.javaClass.simpleName
+            }
+            runOnUiThread {
+                try { espera.dismiss() } catch (e2: Exception) { }
+                val r = rev
+                if (r == null || !r.valido) {
+                    AlertDialog.Builder(this)
+                        .setTitle("Copia no valida")
+                        .setMessage((error ?: r?.motivo ?: "El fichero no sirve como copia de MisRepartos") +
+                                "\n\nNo se ha cambiado nada.")
+                        .setPositiveButton("Vale", null)
+                        .show()
+                } else {
+                    confirmarImportacion(uri, r)
+                }
+            }
+        }.start()
+    }
+
+    private fun confirmarImportacion(uri: Uri, r: Backup.Revision) {
+        val ahora = try { repo.contarJornadas() } catch (e: Exception) { 0 }
+        AlertDialog.Builder(this)
+            .setTitle("IMPORTAR copia de seguridad")
+            .setMessage("ATENCION: vas a SUSTITUIR TODOS los datos actuales de esta app.\n\n" +
+                    "Ahora hay: " + ahora + " jornadas.\n" +
+                    "La copia trae: " + (if (r.jornadas > 0) r.jornadas.toString() + " jornadas" else "una base de datos") +
+                    (if (r.versionOrigen.isNotEmpty()) " (version " + r.versionOrigen + ")" else "") +
+                    " y " + r.capturas + " capturas.\n\n" +
+                    "Antes de sustituir se guardara una copia del estado actual " +
+                    "(backup_antes_de_importar.zip) en la carpeta de informes.\n\n" +
+                    "¿Continuar?")
+            .setPositiveButton("IMPORTAR Y SUSTITUIR") { _, _ -> ejecutarImportacion(uri) }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun ejecutarImportacion(uri: Uri) {
+        val espera = progreso("Guardando copia del estado actual e importando...\nNo cierres la app.")
+        Thread {
+            var error: String? = null
+            var previa: Backup.Salida? = null
+            var res: Backup.Revision? = null
+            var jornadasAntes = 0
+            try {
+                jornadasAntes = repo.contarJornadas()
+                val i = Backup.Info(versionNombre(), jornadasAntes, Backup.contarCapturas(this))
+                val db = getDatabasePath(Backup.NOMBRE_DB)
+                val keep = File(filesDir, Backup.CARPETA_CAPTURAS)
+                repo.cerrarDb()
+                // 1) copia previa OBLIGATORIA: si falla, no se sustituye nada
+                previa = Backup.guardar(this, "informes", Backup.nombreCopiaPrevia()) { out ->
+                    Backup.escribirCopia(this, db, keep, i, out)
+                }
+                if (previa.bytes <= 0) throw IllegalStateException("La copia previa quedo vacia")
+                // 2) sustitucion de base de datos y capturas
+                res = Backup.importar(this, uri, db, keep)
+            } catch (e: Exception) {
+                error = e.message ?: e.javaClass.simpleName
+            }
+            runOnUiThread {
+                try { espera.dismiss() } catch (e2: Exception) { }
+                repo = Repo(this)
+                val r = res
+                val p = previa
+                if (error != null || r == null) {
+                    AlertDialog.Builder(this)
+                        .setTitle("Importacion cancelada")
+                        .setMessage("No se ha sustituido la base de datos.\n\nMotivo: " + (error ?: "desconocido") +
+                                (if (p != null) "\n\nCopia del estado actual:\n" + p.destino + "\n" + p.nombre else "") +
+                                "\n\nJornadas actuales: " + jornadasAntes)
+                        .setPositiveButton("Vale", null)
+                        .show()
+                } else {
+                    AlertDialog.Builder(this)
+                        .setTitle("Importacion completada")
+                        .setMessage("Jornadas importadas: " + r.jornadas + "\nCapturas: " + r.capturas + "\n\n" +
+                                "Copia del estado anterior:\n" + (p?.destino ?: "") + "\n" + (p?.nombre ?: "backup_antes_de_importar.zip") + "\n\n" +
+                                "Reinicia la app para que se recargue todo.")
+                        .setPositiveButton("REINICIAR AHORA") { _, _ -> reiniciarApp() }
+                        .setNegativeButton("Reiniciar mas tarde", null)
+                        .show()
+                }
+            }
+        }.start()
+    }
+
+    /** Reinicia el proceso para que no quede ninguna conexion a la base de datos anterior. */
+    private fun reiniciarApp() {
+        try {
+            val i = Intent(this, MainActivity::class.java).apply {
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            }
+            val pi = PendingIntent.getActivity(this, 0, i,
+                PendingIntent.FLAG_CANCEL_CURRENT or PendingIntent.FLAG_IMMUTABLE)
+            val am = getSystemService(ALARM_SERVICE) as AlarmManager
+            am.set(AlarmManager.RTC, System.currentTimeMillis() + 700, pi)
+        } catch (e: Exception) { }
+        android.os.Process.killProcess(android.os.Process.myPid())
     }
 
     private fun abrirPdf(s: SalidaPdf.Salida) {
