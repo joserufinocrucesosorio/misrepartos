@@ -1,6 +1,8 @@
 package online.soymasdigital.jornada
 
 import android.Manifest
+import android.app.DatePickerDialog
+import android.app.TimePickerDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Color
@@ -14,8 +16,10 @@ import android.text.InputType
 import android.view.Gravity
 import android.widget.Button
 import android.widget.EditText
+import android.widget.ArrayAdapter
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.Spinner
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -25,13 +29,16 @@ import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import online.soymasdigital.jornada.data.CapturasKeep
 import online.soymasdigital.jornada.data.Repo
 import online.soymasdigital.jornada.pdf.Expediente
 import online.soymasdigital.jornada.pdf.Factura
 import online.soymasdigital.jornada.pdf.InformeDia
+import online.soymasdigital.jornada.pdf.Justificacion
 import online.soymasdigital.jornada.pdf.SalidaPdf
 import java.io.File
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -73,6 +80,8 @@ class MainActivity : AppCompatActivity() {
         repo = Repo(this)
         setContentView(construirUI())
         pedirPermisos()
+        // v2.1.1: retencion (30 dias) y tope (400 MB) de las copias propias de capturas.
+        try { CapturasKeep.limpiar(this) } catch (e: Exception) { }
         try {
             val i = Intent(this, online.soymasdigital.jornada.service.JornadaService::class.java)
             ContextCompat.startForegroundService(this, i)
@@ -150,6 +159,12 @@ class MainActivity : AppCompatActivity() {
         sub.textSize = 11f
         col.addView(sub)
 
+        // v2.1.0: acceso directo a la justificacion de un aviso (visible nada mas abrir)
+        val bJust = boton("\uD83D\uDCC4  JUSTIFICACIÓN de un aviso o sanción (PDF)") { formularioJustificacion() }
+        bJust.setTextColor(Color.WHITE)
+        bJust.background = fondo("#B91C1C", 12)
+        col.addView(bJust)
+
         // ---------- BLOQUE A: PREPARAR JORNADA ----------
         montarBloque(col, "A", "BLOQUE A - PREPARAR JORNADA")
         item("A", boton("INICIO GUIADO: horario + cartera + odometro (en casa)") { inicioGuiado() })
@@ -201,6 +216,7 @@ class MainActivity : AppCompatActivity() {
         item("D", boton("Ver EVIDENCIAS registradas") { verEvidencias() })
         item("D", boton("Activar servicio de accesibilidad") { abrirAccesibilidad() })
         item("D", boton("FACTURA DE COBRO (km + mantenimiento, EUR/km)") { generarFactura() })
+        item("D", boton("JUSTIFICACIÓN de aviso/sanción (PDF, formato Rufino)") { formularioJustificacion() })
 
         tvChecklist = TextView(this)
         tvChecklist.setPadding(0, 26, 0, 0)
@@ -445,6 +461,7 @@ class MainActivity : AppCompatActivity() {
         val faltaCar = repo.saldoDe(id, "FIN") == null
         if (!faltaKm && !faltaCar) {
             repo.cerrarJornada(id, "CERRADA_POR_EL_REPARTIDOR")
+            try { CapturasKeep.limpiar(this) } catch (e: Exception) { }
             generarInformeAuto(id)
             toast("Jornada #" + id + " cerrada")
             refrescar()
@@ -603,7 +620,11 @@ class MainActivity : AppCompatActivity() {
             .setPositiveButton("Cerrar jornada") { _, _ ->
                 val (ok2, msg2) = repo.terminar(jid)
                 toast(msg2)
-                if (ok2) { refrescar(); generarInformeAuto(jid); ofrecerFactura() }
+                if (ok2) {
+                    // v2.1.1: mantenimiento de las copias propias al cerrar la jornada.
+                    try { CapturasKeep.limpiar(this) } catch (e: Exception) { }
+                    refrescar(); generarInformeAuto(jid); ofrecerFactura()
+                }
             }
             .setNegativeButton("Todavia no", null)
             .show()
@@ -2496,6 +2517,173 @@ class MainActivity : AppCompatActivity() {
     }
 
     // ---------------- v1.9.9: INFORME DIARIO EN PDF ----------------
+
+    // ---------------- v2.1.0: JUSTIFICACION DE AVISO / SANCION ----------------
+
+    /** Formulario: tipo, fecha/hora del aviso, pedidos afectados y datos del trabajador. */
+    private fun formularioJustificacion() {
+        val cont = LinearLayout(this)
+        cont.orientation = LinearLayout.VERTICAL
+        cont.setPadding(dp(20), dp(8), dp(20), dp(8))
+
+        fun etiqueta(t: String): TextView {
+            val tv = TextView(this)
+            tv.text = t
+            tv.textSize = 12f
+            tv.setTypeface(null, android.graphics.Typeface.BOLD)
+            tv.setPadding(0, dp(10), 0, dp(2))
+            return tv
+        }
+
+        val tipo = Spinner(this)
+        ArrayAdapter(this, android.R.layout.simple_spinner_item,
+                arrayOf("Llamada de atención", "Sanción", "Suspensión"))
+                .also { it.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item); tipo.adapter = it }
+
+        val calFecha = Calendar.getInstance()
+        val calHora = Calendar.getInstance()
+
+        val bFecha = Button(this)
+        bFecha.isAllCaps = false
+        fun pintarFecha() {
+            bFecha.text = "Fecha del aviso: " + String.format(Locale.US, "%02d/%02d/%04d",
+                    calFecha.get(Calendar.DAY_OF_MONTH), calFecha.get(Calendar.MONTH) + 1, calFecha.get(Calendar.YEAR))
+        }
+        pintarFecha()
+        bFecha.setOnClickListener {
+            DatePickerDialog(this, { _, a, m, d ->
+                calFecha.set(a, m, d)
+                pintarFecha()
+            }, calFecha.get(Calendar.YEAR), calFecha.get(Calendar.MONTH), calFecha.get(Calendar.DAY_OF_MONTH)).show()
+        }
+
+        val bHora = Button(this)
+        bHora.isAllCaps = false
+        fun pintarHora() {
+            bHora.text = "Hora del aviso: " + String.format(Locale.US, "%02d:%02d",
+                    calHora.get(Calendar.HOUR_OF_DAY), calHora.get(Calendar.MINUTE))
+        }
+        pintarHora()
+        bHora.setOnClickListener {
+            TimePickerDialog(this, { _, hh, mm ->
+                calHora.set(Calendar.HOUR_OF_DAY, hh)
+                calHora.set(Calendar.MINUTE, mm)
+                pintarHora()
+            }, calHora.get(Calendar.HOUR_OF_DAY), calHora.get(Calendar.MINUTE), true).show()
+        }
+
+        val ePedidos = EditText(this)
+        ePedidos.hint = "Order ID (uno o varios, separados por coma, espacio o salto de línea)"
+        ePedidos.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_MULTI_LINE
+        ePedidos.minLines = 3
+        ePedidos.gravity = Gravity.TOP
+
+        val eRef = EditText(this)
+        eRef.hint = "Referencia o expediente del aviso (opcional)"
+        eRef.inputType = InputType.TYPE_CLASS_TEXT
+
+        val eNombre = EditText(this)
+        eNombre.hint = "Nombre y apellidos del trabajador"
+        eNombre.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_WORDS
+        eNombre.setText(prefs().getString("just_trabajador", "").orEmpty().ifEmpty { datoRepartidor() })
+
+        val eDni = EditText(this)
+        eDni.hint = "DNI / NIE"
+        eDni.inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_FLAG_CAP_CHARACTERS
+        eDni.setText(prefs().getString("just_dni", "").orEmpty())
+
+        val eEmpresa = EditText(this)
+        eEmpresa.hint = "Empresa (razón social)"
+        eEmpresa.inputType = InputType.TYPE_CLASS_TEXT
+        eEmpresa.setText(prefs().getString("just_empresa", "").orEmpty())
+
+        cont.addView(etiqueta("Tipo de aviso"))
+        cont.addView(tipo)
+        cont.addView(etiqueta("Fecha y hora del aviso"))
+        cont.addView(bFecha)
+        cont.addView(bHora)
+        cont.addView(etiqueta("Pedidos afectados"))
+        cont.addView(ePedidos)
+        cont.addView(etiqueta("Referencia / expediente"))
+        cont.addView(eRef)
+        cont.addView(etiqueta("Datos del trabajador (se guardan en el móvil)"))
+        cont.addView(eNombre)
+        cont.addView(eDni)
+        cont.addView(eEmpresa)
+
+        val aviso = TextView(this)
+        aviso.text = "La justificación se redacta con los hitos reales de esos pedidos en la base de datos " +
+                "de la app (recibo, ruta, llegada, recogida, entrega y kilómetros) y con las capturas guardadas " +
+                "en el tramo de cada pedido. Si falta un dato se escribe «s/d»."
+        aviso.textSize = 11f
+        aviso.setTextColor(Color.parseColor("#475569"))
+        aviso.setPadding(0, dp(12), 0, 0)
+        cont.addView(aviso)
+
+        val sv = ScrollView(this)
+        sv.addView(cont)
+
+        val dlg = AlertDialog.Builder(this)
+                .setTitle("Justificación de aviso o sanción")
+                .setView(sv)
+                .setPositiveButton("Generar justificación", null)
+                .setNegativeButton("Cancelar", null)
+                .create()
+        dlg.setOnShowListener {
+            dlg.getButton(android.content.DialogInterface.BUTTON_POSITIVE).setOnClickListener {
+                val ids = extraerPedidos(ePedidos.text.toString())
+                if (ids.isEmpty()) {
+                    toast("Escribe al menos un número de pedido (Order ID)")
+                    return@setOnClickListener
+                }
+                val nombre = eNombre.text.toString().trim()
+                val dni = eDni.text.toString().trim()
+                val empresa = eEmpresa.text.toString().trim()
+                prefs().edit()
+                        .putString("just_trabajador", nombre)
+                        .putString("just_dni", dni)
+                        .putString("just_empresa", empresa)
+                        .apply()
+                val cal = Calendar.getInstance()
+                cal.set(calFecha.get(Calendar.YEAR), calFecha.get(Calendar.MONTH), calFecha.get(Calendar.DAY_OF_MONTH),
+                        calHora.get(Calendar.HOUR_OF_DAY), calHora.get(Calendar.MINUTE), 0)
+                cal.set(Calendar.MILLISECOND, 0)
+                val datos = Justificacion.Datos(
+                        tipo.selectedItem?.toString() ?: "Llamada de atención",
+                        cal.timeInMillis, ids, eRef.text.toString().trim(), nombre, dni, empresa)
+                dlg.dismiss()
+                conCarpeta {
+                    toast("Generando justificación PDF...")
+                    Thread {
+                        try {
+                            val s = Justificacion.generar(applicationContext, datos)
+                            runOnUiThread { mostrarJustificacion(s) }
+                        } catch (e: Exception) {
+                            runOnUiThread { toast("No se pudo generar la justificación: " + e.message) }
+                        }
+                    }.start()
+                }
+            }
+        }
+        dlg.show()
+    }
+
+    /** Saca los Order ID de un texto libre: uno o varios, con coma, espacio o salto de linea. */
+    private fun extraerPedidos(texto: String): List<String> {
+        val out = LinkedHashSet<String>()
+        for (m in Regex("[0-9]{6,}").findAll(texto)) out.add(m.value)
+        return out.toList()
+    }
+
+    private fun mostrarJustificacion(s: SalidaPdf.Salida) {
+        AlertDialog.Builder(this)
+                .setTitle("Justificación generada")
+                .setMessage("Guardada en:\n" + s.destino + "\n" + s.nombre + "\n\n" + (s.bytes / 1024) + " KB")
+                .setPositiveButton("Compartir") { _, _ -> compartirPdf(s) }
+                .setNeutralButton("Abrir") { _, _ -> abrirPdf(s) }
+                .setNegativeButton("Cerrar", null)
+                .show()
+    }
 
     /** Genera el informe de la jornada de hoy (o de la ultima con datos) y ofrece compartirlo. */
     private fun generarInformeDelDia() {

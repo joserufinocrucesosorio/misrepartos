@@ -7,6 +7,7 @@ import android.util.Log
 import android.view.Display
 import android.view.accessibility.AccessibilityEvent
 import online.soymasdigital.jornada.data.Repo
+import online.soymasdigital.jornada.data.CapturasKeep
 import java.io.File
 import java.io.FileOutputStream
 
@@ -350,6 +351,13 @@ class GlovoAccessibilityService : AccessibilityService() {
                             repo.registrarEvidencia("captura", "CAPTURA",
                                     "Captura de pantalla ($etiqueta) | archivo: " + f.name, f.absolutePath)
                             Log.i(TAG, "captura guardada: " + f.name)
+                            // v2.1.1: copia reducida propia (filesDir/capturas_keep) que no se borra
+                            // al archivar el dia en el PC. Nunca rompe la captura.
+                            try {
+                                CapturasKeep.guardarDesdeArchivo(this@GlovoAccessibilityService, f, etiqueta)
+                            } catch (e: Exception) {
+                                Log.w(TAG, "copia keep: " + e.message)
+                            }
                         }
                     } catch (e: Exception) {
                         Log.w(TAG, "captura fallida: " + e.message)

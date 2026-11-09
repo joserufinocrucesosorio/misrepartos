@@ -1529,6 +1529,69 @@ class Repo(ctx: Context) {
     fun mantenimientoJornada(jid: Long): Double =
         Math.round(gastos(jid).filter { it.tipo == "MANTENIMIENTO" }.sumOf { it.importe } * 100.0) / 100.0
 
+    // ---------------- v2.1.0: consultas para la JUSTIFICACION (solo lectura) ----------------
+
+    /**
+     * Jornada a la que pertenece un pedido. Mira primero el flujo y, si el pedido solo aparece
+     * en los pantallazos, recorre las jornadas buscando su numero en la evidencia.
+     * Devuelve null si la app no tiene ningun dato de ese pedido.
+     */
+    fun jornadaDePedido(pedido: String): Long? {
+        db.rawQuery("SELECT jornada_id FROM flujo WHERE pedido=? ORDER BY ts LIMIT 1", arrayOf(pedido)).use { c ->
+            if (c.moveToFirst()) return c.getLong(0)
+        }
+        val ids = ArrayList<Long>()
+        db.rawQuery("SELECT id FROM jornada ORDER BY id DESC", null).use { c ->
+            while (c.moveToNext()) ids.add(c.getLong(0))
+        }
+        for (id in ids) {
+            val (a, b) = rango(id)
+            db.rawQuery("SELECT 1 FROM evidencia WHERE ts>=? AND ts<=? AND texto LIKE ? LIMIT 1",
+                    arrayOf(a.toString(), b.toString(), "%" + pedido + "%")).use { c ->
+                if (c.moveToFirst()) return id
+            }
+        }
+        return null
+    }
+
+    /** Pantallazos (CAPTURA) guardados entre dos horas, con la ruta del archivo. */
+    fun capturasEntre(desde: Long, hasta: Long): List<Pair<Long, String>> {
+        val out = ArrayList<Pair<Long, String>>()
+        db.rawQuery("SELECT ts, IFNULL(archivo,'') FROM evidencia WHERE ts>=? AND ts<=? AND archivo<>'' " +
+                "ORDER BY ts", arrayOf(desde.toString(), hasta.toString())).use { c ->
+            while (c.moveToNext()) out.add(c.getLong(0) to (c.getString(1) ?: ""))
+        }
+        return out
+    }
+
+    /** Lecturas de cuentakilometros anotadas en la tabla km dentro de un tramo. */
+    fun kmLecturasEntre(desde: Long, hasta: Long): List<Pair<Long, Double>> {
+        val out = ArrayList<Pair<Long, Double>>()
+        db.rawQuery("SELECT ts, valor FROM km WHERE ts>=? AND ts<=? ORDER BY ts",
+                arrayOf(desde.toString(), hasta.toString())).use { c ->
+            while (c.moveToNext()) out.add(c.getLong(0) to c.getDouble(1))
+        }
+        return out
+    }
+
+    /** Ultima lectura de cuentakilometros anterior (o igual) a una hora. */
+    fun kmLecturaAntes(ts: Long): Pair<Long, Double>? {
+        db.rawQuery("SELECT ts, valor FROM km WHERE ts<=? ORDER BY ts DESC LIMIT 1",
+                arrayOf(ts.toString())).use { c ->
+            if (c.moveToFirst()) return c.getLong(0) to c.getDouble(1)
+        }
+        return null
+    }
+
+    /** Primera lectura de cuentakilometros posterior (o igual) a una hora. */
+    fun kmLecturaDespues(ts: Long): Pair<Long, Double>? {
+        db.rawQuery("SELECT ts, valor FROM km WHERE ts>=? ORDER BY ts ASC LIMIT 1",
+                arrayOf(ts.toString())).use { c ->
+            if (c.moveToFirst()) return c.getLong(0) to c.getDouble(1)
+        }
+        return null
+    }
+
     private fun pad(s: String, n: Int): String = if (s.length >= n) s.substring(0, n) else s + " ".repeat(n - s.length)
     private fun horaFmt(ms: Long): String = hora.format(Date(ms))
     private fun corto(ms: Long): String = horaFmt(ms).substring(0, 5)

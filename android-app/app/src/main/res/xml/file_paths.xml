@@ -4,4 +4,5 @@
     <external-files-path name="expedientes" path="expedientes/" />
     <external-files-path name="informes" path="informes/" />
     <external-files-path name="facturas" path="facturas/" />
+    <external-files-path name="justificaciones" path="justificaciones/" />
 </paths>
