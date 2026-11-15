@@ -612,16 +612,16 @@ object Justificacion {
             if (y + 34f > TOPE) abrir()
             y += 10f
             page!!.canvas.drawText(t, IZQ, y, pSec)
-            y += 4f
+            y += 5f
             page!!.canvas.drawLine(IZQ, y, DER, y, pLin)
-            y += 14f
+            y += 21f
         }
 
         fun subseccion(t: String) {
-            if (y + 24f > TOPE) abrir()
-            y += 6f
+            if (y + 34f > TOPE) abrir()
+            y += 14f
             page!!.canvas.drawText(t, IZQ, y, pSub2)
-            y += 6f
+            y += 17f
         }
 
         fun aritmetica(t: String) {
@@ -637,7 +637,7 @@ object Justificacion {
                 if (y + 13f > TOPE) abrir()
                 val ultima = k == lineas.size - 1
                 if (justificar && !ultima) justificada(l, y) else page!!.canvas.drawText(l, IZQ, y, pTxt)
-                y += 13.6f
+                y += 14.8f
             }
             y += 5f
         }
@@ -663,7 +663,7 @@ object Justificacion {
             val pB = Paint().apply { textSize = 9.5f; isFakeBoldText = true }
             for ((etq, valor) in filas) {
                 val lineas = envolver(valor, w2 - 10f, pTxt)
-                val alto = Math.max(22f, lineas.size * 12.5f + 9f)
+                val alto = Math.max(24f, lineas.size * 14f + 10f)
                 if (y + alto > TOPE) abrir()
                 val r = RectF(IZQ, y - 11f, DER, y - 11f + alto)
                 page!!.canvas.drawRect(r, pLin)
@@ -672,7 +672,7 @@ object Justificacion {
                 var yy = y + 3f
                 for (l in lineas) {
                     page!!.canvas.drawText(l, IZQ + w1 + 5f, yy, pTxt)
-                    yy += 12.5f
+                    yy += 14f
                 }
                 y += alto
             }
@@ -690,14 +690,14 @@ object Justificacion {
                     w = h * bmp.width.toFloat() / bmp.height.toFloat()
                 }
                 val caps = envolver(pie, ANCHO - 30f, pItal)
-                val total = h + caps.size * 10.5f + 14f
+                val total = h + caps.size * 12f + 16f
                 if (y + total > TOPE) abrir()
                 val x = IZQ + (ANCHO - w) / 2f
                 page!!.canvas.drawBitmap(bmp, null, RectF(x, y, x + w, y + h), pImg)
                 y += h + 5f
                 for (c in caps) {
                     page!!.canvas.drawText(c, (IZQ + DER) / 2f, y + 8f, pItal)
-                    y += 10.5f
+                    y += 12f
                 }
                 y += 11f
             } finally {
