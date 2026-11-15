@@ -612,9 +612,9 @@ object Justificacion {
             if (y + 34f > TOPE) abrir()
             y += 10f
             page!!.canvas.drawText(t, IZQ, y, pSec)
-            y += 5f
+            y += 10f
             page!!.canvas.drawLine(IZQ, y, DER, y, pLin)
-            y += 21f
+            y += 18f
         }
 
         fun subseccion(t: String) {

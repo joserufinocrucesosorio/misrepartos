@@ -2637,6 +2637,11 @@ class MainActivity : AppCompatActivity() {
 
         val sv = ScrollView(this)
         sv.addView(cont)
+        // El diálogo no puede crecer más que la pantalla: si crece, el teclado tapa los botones.
+        val altoPantalla = resources.displayMetrics.heightPixels
+        sv.layoutParams = android.widget.FrameLayout.LayoutParams(
+                android.widget.FrameLayout.LayoutParams.MATCH_PARENT,
+                (altoPantalla * 0.55f).toInt())
 
         val dlg = AlertDialog.Builder(this)
                 .setTitle("Justificación de aviso o sanción")
@@ -2645,10 +2650,11 @@ class MainActivity : AppCompatActivity() {
                 .setNegativeButton("Cancelar", null)
                 .create()
         dlg.setOnShowListener {
+            dlg.window?.setSoftInputMode(android.view.WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE)
             dlg.getButton(android.content.DialogInterface.BUTTON_POSITIVE).setOnClickListener {
                 val ids = extraerPedidos(ePedidos.text.toString())
                 if (ids.isEmpty()) {
-                    toast("Escribe al menos un número de pedido (Order ID)")
+                    toast("Falta el Order ID: escríbelo en la casilla «Pedidos afectados» (solo números, mínimo 6)")
                     return@setOnClickListener
                 }
                 val nombre = eNombre.text.toString().trim()

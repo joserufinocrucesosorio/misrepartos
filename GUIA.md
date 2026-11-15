@@ -1,6 +1,6 @@
-# Guía de uso — MisRepartos 2.1.4
+# Guía de uso — MisRepartos 2.1.6
 
-Guía correspondiente a la versión **2.1.4 (versionCode 61)**.
+Guía correspondiente a la versión **2.1.6 (versionCode 63)**.
 
 ## 1. Instalación
 
@@ -39,7 +39,7 @@ Botón **«Justificación de un aviso o sanción (PDF)»** (desde la 2.1.0).
 
 La app busca esos pedidos en su base de datos y redacta el documento con el formato habitual: cabecera, tabla de datos, **RESUMEN** con horas exactas y **exposición de hechos** numerada, insertando las capturas del momento en que ocurrieron.
 
-## 5. Copia de seguridad (novedad en 2.1.4)
+## 5. Copia de seguridad (novedad en 2.1.6)
 
 ### Exportar
 Botón **«Exportar copia de seguridad»**. Genera un ZIP con:
@@ -92,6 +92,6 @@ Botón **«Importar copia de seguridad»**. Elige el ZIP y confirma.
 | 2.0.1 | Informes PDF locales, sin INTERNET |
 | 2.1.0 | Justificación de avisos y sanciones |
 | 2.1.1 | Archivo propio de capturas (30 días) |
-| **2.1.4** | **Exportar e importar copia de seguridad** |
+| **2.1.6** | **Exportar e importar copia de seguridad** |
 
-Autor: **JoseRufino** · Licencia GPL-3.0 · Versión 2.1.4
+Autor: **JoseRufino** · Licencia GPL-3.0 · Versión 2.1.6
