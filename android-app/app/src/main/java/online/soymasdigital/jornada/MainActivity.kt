@@ -502,19 +502,44 @@ class MainActivity : AppCompatActivity() {
             refrescar()
             return
         }
-        pedirHorario {
-            pedirKmMomento("INICIO") {
-                pedirCarteraMomento("INICIO") {
-                    AlertDialog.Builder(this)
-                        .setTitle("Jornada preparada")
-                        .setMessage("Jornada, horario, km de inicio y cartera de INICIO registrados.\n\n" +
-                                "Durante la jornada solo registra incidencias (cliente ausente / lluvia).\n" +
-                                "Al terminar pulsa FINALIZAR JORNADA: te pedira km final y cartera final, y te mostrara " +
-                                "el TIEMPO COMPLEMENTARIO (lo trabajado por fuera del horario programado).")
-                        .setPositiveButton("OK") { _, _ -> refrescar() }
-                        .show()
-                }
+        // v2.1.7: pide solo lo que falte, sin reiniciar el asistente desde el principio.
+        val idJ = repo.jornadaAbierta()
+        if (idJ == null) return
+        val faltaHorario = repo.horario(idJ).first == null
+        val faltaKm = repo.kmDe(idJ, "INICIO") == null
+        val faltaCartera = repo.saldoDe(idJ, "INICIO") == null
+
+        fun mostrarPreparada() {
+            AlertDialog.Builder(this)
+                .setTitle("Jornada preparada")
+                .setMessage("Jornada, horario, km de inicio y cartera de INICIO registrados.\n\n" +
+                        "Durante la jornada solo registra incidencias (cliente ausente / lluvia).\n" +
+                        "Al terminar pulsa FINALIZAR JORNADA: te pedira km final y cartera final, y te mostrara " +
+                        "el TIEMPO COMPLEMENTARIO (lo trabajado por fuera del horario programado).")
+                .setPositiveButton("OK") { _, _ -> refrescar() }
+                .show()
+        }
+
+        fun pasoCartera() {
+            if (faltaCartera) {
+                pedirCarteraMomento("INICIO") { mostrarPreparada() }
+            } else {
+                mostrarPreparada()
             }
+        }
+
+        fun pasoKm() {
+            if (faltaKm) {
+                pedirKmMomento("INICIO") { pasoCartera() }
+            } else {
+                pasoCartera()
+            }
+        }
+
+        if (faltaHorario) {
+            pedirHorario { pasoKm() }
+        } else {
+            pasoKm()
         }
     }
 
@@ -758,6 +783,12 @@ class MainActivity : AppCompatActivity() {
                     "(prueba con hora real). Sirve para documentar los km que no se pagan." +
                     (if (previo != null) "\n\nOJO: ya tienes km " + momento + " = " + previo + " km. Si guardas ahora, se REEMPLAZA ese valor." else ""))
             .setView(et)
+            .setNeutralButton(if (previo != null) "Usar el que tengo" else "Cancelar") { _, _ ->
+                if (previo != null) {
+                    toast("Se mantiene el km " + momento + ": " + fmtKm(previo) + " km")
+                    siguiente()
+                }
+            }
             .setPositiveButton("Guardar") { _, _ ->
                 val v = et.text.toString().replace(',', '.').trim().toDoubleOrNull()
                 if (v == null) { toast("Numero no valido"); return@setPositiveButton }
@@ -778,7 +809,6 @@ class MainActivity : AppCompatActivity() {
                     .setNegativeButton("Guardar igual") { _, _ -> guardarKmValor(momento, v, siguiente) }
                     .show()
             }
-            .setNegativeButton("Cancelar") { _, _ -> }
             .show()
     }
 

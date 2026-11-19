@@ -330,10 +330,16 @@ class Repo(ctx: Context) {
         val miembros = ArrayList<Pair<String, Long>>()
         miembros.add(pedido to ts)
         if (local.isNotEmpty()) {
+            val yoSinRecogida = !tieneFase(jid, pedido, "RECOGIDA")
             for (o in pedidos(jid)) {
                 if (o.id == pedido || o.local != local) continue
-                val tsO = tsFase(jid, o.id, "RECIBO_PEDIDO") ?: continue
-                if (Math.abs(tsO - ts) <= 60_000L) miembros.add(o.id to tsO)
+                // v2.1.7: un pedido ya entregado no forma parte de un lote abierto.
+                if (tieneFase(jid, o.id, "ENTREGA")) continue
+                val tsO = tsFase(jid, o.id, "RECIBO_PEDIDO") ?: o.primera
+                // v2.1.7: si NINGUNO de los dos se ha recogido todavia, son lote aunque el
+                // segundo llegue minutos despues (antes solo se unian a 60 s y se perdian).
+                val compartenRecogida = yoSinRecogida && !tieneFase(jid, o.id, "RECOGIDA")
+                if (compartenRecogida || Math.abs(tsO - ts) <= 60_000L) miembros.add(o.id to tsO)
             }
         }
         return miembros.sortedBy { it.second }.map { it.first }
