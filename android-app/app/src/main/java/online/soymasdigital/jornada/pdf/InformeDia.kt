@@ -129,6 +129,11 @@ object InformeDia {
         pagadoLocales = red2(pagadoLocales)
         val neto = red2(efectivo - pagadoLocales)
         val kmTotal = repo.kmRecorridos(jid)
+        // v2.1.8: nombre del repartidor y saldos de cartera (inicio/fin) en el informe
+        val nombreRep = ctx.getSharedPreferences("jornada_prefs", Context.MODE_PRIVATE)
+                .getString("repartidor_nombre", "")?.trim().orEmpty()
+        val carteraIni = repo.saldoDe(jid, "INICIO")
+        val carteraFin = repo.saldoDe(jid, "FIN")
 
         // ---- Documento ----
         val doc = Lienzo("Informe de jornada", "JoseRufino · " + FECHA_VER.format(Date()))
@@ -153,9 +158,12 @@ object InformeDia {
             arrayOf("Concepto", "Valor"),
             floatArrayOf(300f, 215f),
             listOf(
+                arrayOf("Repartidor", if (nombreRep.isEmpty()) "s/d" else nombreRep),
                 arrayOf("Pedidos", pedidos.size.toString() + (if (numLotes > 0) "  (incluye " + numLotes + " lote/s)" else "")),
                 arrayOf("Lotes", numLotes.toString()),
                 arrayOf("Km totales (odometro)", if (kmTotal != null) km(kmTotal) else "s/d"),
+                arrayOf("Cartera inicio", if (carteraIni != null) eur(carteraIni) else "s/d"),
+                arrayOf("Cartera final", if (carteraFin != null) eur(carteraFin) else "s/d"),
                 arrayOf("Efectivo cobrado", eur(efectivo)),
                 arrayOf("Pagado en locales", eur(pagadoLocales)),
                 arrayOf("Neto", eur(neto))
@@ -307,6 +315,8 @@ object InformeDia {
             arrayOf("Concepto", "Importe"),
             floatArrayOf(300f, 215f),
             listOf(
+                arrayOf("Cartera al inicio", if (carteraIni != null) eur(carteraIni) else "s/d"),
+                arrayOf("Cartera al final", if (carteraFin != null) eur(carteraFin) else "s/d"),
                 arrayOf("Cobrado en efectivo", "+" + eur(efectivo)),
                 arrayOf("Pagado en locales", "-" + eur(pagadoLocales)),
                 arrayOf("Neto", eur(neto))
