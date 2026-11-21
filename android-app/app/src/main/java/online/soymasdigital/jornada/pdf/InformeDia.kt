@@ -260,6 +260,14 @@ object InformeDia {
                 filas,
                 tam = 8f
             )
+            // v2.1.9: si la vuelta a casa se cerro con distancia de Maps, se dice claramente
+            val notaCasa = repo.eventosJornada(jid).lastOrNull { it.first == "LLEGADA_CASA" }?.third ?: ""
+            if (notaCasa.contains("estimado=1")) {
+                val dist = Regex("vuelta=([0-9]+(?:[.,][0-9]+)?)").find(notaCasa)
+                        ?.groupValues?.get(1)?.replace(',', '.')?.toDoubleOrNull()
+                doc.parrafo("Vuelta a casa: " + (if (dist != null) km(dist) else "s/d") +
+                        " — distancia ESTIMADA por Google Maps, no leida del cuentakilometros.", doc.negrita())
+            }
         }
 
         doc.seccion("5. Incidencias y notas")

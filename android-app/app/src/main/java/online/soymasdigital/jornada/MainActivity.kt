@@ -2257,6 +2257,18 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun pedirKmLlegadaCasa() {
+        // v2.1.9: permite cerrar el tramo a casa con distancia ESTIMADA por Maps
+        AlertDialog.Builder(this)
+            .setTitle("Llegada a casa: km real o estimado")
+            .setMessage("Si ya no tienes el cuentakilometros a mano, puedes usar la distancia que marcaba Maps. " +
+                    "Quedara etiquetado como ESTIMADO en el informe y no se confundira con una lectura real.")
+            .setPositiveButton("Km real (cuentakilometros)") { _, _ -> pedirKmLlegadaCasaReal() }
+            .setNeutralButton("Estimado (Maps)") { _, _ -> pedirKmLlegadaCasaEstimado() }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    private fun pedirKmLlegadaCasaReal() {
         val et = EditText(this)
         et.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
         val salida = repo.eventosJornada(jid).lastOrNull { it.first == "VUELTA_SALIDA" }
@@ -2289,6 +2301,40 @@ class MainActivity : AppCompatActivity() {
                 toast("Llegada a casa: " + fmtKm(v) + " km (" + fmtKm(kmRec) + " km de vuelta)")
                 refrescar()
                 guardarKmValor("FIN", v) { ofrecerCapturaLlegada() }
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
+    /** v2.1.9: registra la llegada a casa con la distancia que marco Maps, marcada como estimada. */
+    private fun pedirKmLlegadaCasaEstimado() {
+        val salida = repo.eventosJornada(jid).lastOrNull { it.first == "VUELTA_SALIDA" }
+        val kmSal = salida?.third?.let {
+            Regex("km=([0-9]+(?:[.,][0-9]+)?)").find(it)?.groupValues?.get(1)?.replace(',', '.')?.toDoubleOrNull()
+        }
+        val et = EditText(this)
+        et.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
+        et.hint = "Km de la vuelta segun Maps (ej. 3,4)"
+        AlertDialog.Builder(this)
+            .setTitle("Llegada a casa - distancia estimada")
+            .setMessage("Escribe los km que marco Maps para la vuelta a casa. Se guardara como ESTIMADO, " +
+                    "no como lectura del cuentakilometros." +
+                    (if (kmSal != null) "\n\nSalida registrada con " + fmtKm(kmSal) + " km." else ""))
+            .setView(et)
+            .setPositiveButton("Guardar y cerrar") { _, _ ->
+                val dist = et.text.toString().replace(',', '.').trim().toDoubleOrNull()
+                if (dist == null || dist <= 0.0) { toast("Numero no valido"); return@setPositiveButton }
+                val minutos = if (salida != null)
+                    ((System.currentTimeMillis() - salida.second) / 60000L).coerceAtLeast(0L) else 0L
+                val kmTotal = if (kmSal != null) kmSal + dist else dist
+                val ok = repo.registrarEventoJornada(jid, "LLEGADA_CASA",
+                        "km=" + fmtKm(kmTotal) + " vuelta=" + fmtKm(dist) +
+                                " tiempo=" + String.format(Locale.US, "%02d:%02d", minutos / 60, minutos % 60) +
+                                " estimado=1 fuente=maps")
+                if (!ok) { toast("LLEGADA_CASA ya registrada hace menos de 30 s: no se repite."); return@setPositiveButton }
+                toast("Llegada estimada: " + fmtKm(dist) + " km de vuelta (Maps)")
+                refrescar()
+                guardarKmValor("FIN", kmTotal) { ofrecerCapturaLlegada() }
             }
             .setNegativeButton("Cancelar", null)
             .show()
