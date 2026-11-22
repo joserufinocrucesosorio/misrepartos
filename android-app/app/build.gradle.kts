@@ -18,8 +18,8 @@ android {
         applicationId = "online.soymasdigital.jornada"
         minSdk = 26
         targetSdk = 35
-        versionCode = 66
-        versionName = "2.1.9"
+        versionCode = 67
+        versionName = "2.2.0"
     }
 
     signingConfigs {

@@ -343,6 +343,7 @@ object InformeDia {
     private fun estadoLegible(e: String): String = when (e) {
         "CERRADA_POR_EL_REPARTIDOR" -> "CERRADA (por el repartidor)"
         "CERRADA" -> "CERRADA"
+        "CERRADA_CON_HUECOS" -> "CERRADA (con datos pendientes)"
         "EN_CURSO" -> "EN_CURSO (abierta)"
         "" -> "s/d"
         else -> e

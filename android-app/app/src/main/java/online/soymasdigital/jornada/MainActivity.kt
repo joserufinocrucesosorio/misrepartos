@@ -626,6 +626,22 @@ class MainActivity : AppCompatActivity() {
         mostrarCierreFinal()
     }
 
+    /** v2.2.0: cierra la jornada aunque falten datos, dejando constancia del hueco. */
+    private fun cerrarConHuecos(detalle: String) {
+        AlertDialog.Builder(this)
+            .setTitle("Cerrar la jornada dejando huecos")
+            .setMessage("Se cerrara la jornada marcando que faltan datos:\n\n" + detalle +
+                    "\n\nEl informe los mostrara como s/d. No se inventa ninguna cifra.")
+            .setPositiveButton("Si, cerrar") { _, _ ->
+                repo.cerrarJornada(jid, "CERRADA_CON_HUECOS")
+                toast("Jornada cerrada con datos pendientes")
+                refrescar()
+                generarInformeAuto(jid)
+            }
+            .setNegativeButton("Cancelar", null)
+            .show()
+    }
+
     private fun mostrarCierreFinal() {
         if (jid == 0L) { toast("No hay jornada abierta"); return }
         val (ok, msg) = repo.puedeTerminar(jid)
@@ -635,7 +651,7 @@ class MainActivity : AppCompatActivity() {
                 .setMessage(msg + "\n\nSin estos datos no hay prueba para un reclamo. Puedes completarlos ahora.")
                 .setPositiveButton("Cartera") { _, _ -> pedirSnapshot() }
                 .setNeutralButton("Km moto") { _, _ -> pedirKm() }
-                .setNegativeButton("Cerrar", null)
+                .setNegativeButton("Cerrar igual (con huecos)") { _, _ -> cerrarConHuecos(msg) }
                 .show()
             return
         }
