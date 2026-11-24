@@ -696,7 +696,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun pedirCarteraMomento(momento: String, siguiente: () -> Unit) {
-        if (jid == 0L) { toast("Primero abre la jornada (1. PREPARAR JORNADA)"); return }
+        // v2.2.1: idem para la cartera sobre la ultima jornada cerrada
+        if (jid == 0L) {
+            val ult = repo.ultimaJornadaUtil()
+            if (ult == null) { toast("No hay jornada abierta ni anterior"); return }
+            jid = ult
+            toast("Jornada #" + ult + " ya cerrada: se completa el dato sobre ella")
+        }
         val et = EditText(this)
         et.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
         et.hint = "Saldo actual de la Cartera (ej. 452,32)"
@@ -788,7 +794,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun pedirKmMomento(momento: String, siguiente: () -> Unit) {
-        if (jid == 0L) { toast("Primero abre la jornada (1. PREPARAR JORNADA)"); return }
+        // v2.2.1: permite completar el dato sobre la ultima jornada cerrada (antes se bloqueaba)
+        if (jid == 0L) {
+            val ult = repo.ultimaJornadaUtil()
+            if (ult == null) { toast("No hay jornada abierta ni anterior"); return }
+            jid = ult
+            toast("Jornada #" + ult + " ya cerrada: se completa el dato sobre ella")
+        }
         val previo = repo.kmDe(jid, momento)
         val et = EditText(this)
         et.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
